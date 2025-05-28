@@ -10,7 +10,7 @@ import jakarta.persistence.Id
 data class PortfolioItem(
     @Id
     @GeneratedValue
-    val id: Int,
+    val id: Int? = null,
     @Column(name = "customer_id")
     val userId: Int,
     val ticker: Ticker,

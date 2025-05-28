@@ -1,13 +1,16 @@
 package com.example.grpc_user_service.service.handler
 
+import com.example.grpc_user_service.entity.PortfolioItem
+import com.example.grpc_user_service.exceptions.InsufficientBalanceException
+import com.example.grpc_user_service.exceptions.UnknownTickerException
 import com.example.grpc_user_service.exceptions.UnknownUserException
 import com.example.grpc_user_service.repository.PortfolioItemRepository
-import com.example.grpc_user_service.util.EntityMessageMapper
 import com.example.grpc_user_service.repository.UserRepository
+import com.example.grpc_user_service.util.EntityMessageMapper
+import com.vinsguru.common.Ticker
 import com.vinsguru.user.StockTradeRequest
 import com.vinsguru.user.StockTradeResponse
-import com.vinsguru.user.UserInformation
-import com.vinsguru.user.UserInformationRequest
+import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
 
 
@@ -17,9 +20,36 @@ class StockTradeRequestHandler(
     val portfolioItemRepository: PortfolioItemRepository
 ) {
 
-    fun buyStock(stockRequest: StockTradeRequest): StockTradeResponse {
+    @Transactional
+    fun buyStock(request: StockTradeRequest): StockTradeResponse {
         //validate
+        validateTicker(request.ticker)
+        val user = userRepository.findById(request.userId).orElseThrow { UnknownUserException(request.userId) }
+        val totalPrice = request.quantity * request.price
+        validateUserBalance(user.id, user.balance, totalPrice)
+        //valid request
+        val userToSave = user.copy(balance = user.balance - totalPrice)
+        val portfolio = validatePortfolio(portfolioItemRepository.findByUserIdAndTicker(userToSave.id, request.ticker), request)
+        userRepository.save(userToSave)
+        portfolioItemRepository.save(portfolio)
 
-        //update
+        return EntityMessageMapper.toStockTradeResponse(request, userToSave.balance)
+    }
+
+    fun validateTicker(ticker: Ticker) {
+        if (Ticker.UNKNOWN_VALUE == ticker.number) {
+            throw UnknownTickerException()
+        }
+    }
+
+    fun validateUserBalance(userId: Int, userBalance: Int, totalPrice: Int) {
+        if(totalPrice > userBalance) {
+            throw InsufficientBalanceException(userId)
+        }
+    }
+
+    fun validatePortfolio(portfolio: PortfolioItem?, request: StockTradeRequest): PortfolioItem {
+        return portfolio?.copy(quantity = portfolio.quantity + request.quantity)
+            ?: EntityMessageMapper.toPortfolioItem(request)
     }
 }
