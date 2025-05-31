@@ -28,13 +28,36 @@ class StockTradeRequestHandler(
         val totalPrice = request.quantity * request.price
         validateUserBalance(user.id, user.balance, totalPrice)
         //valid request
-        val userToSave = user.copy(balance = user.balance - totalPrice)
-        val portfolio = validatePortfolio(portfolioItemRepository.findByUserIdAndTicker(userToSave.id, request.ticker), request)
+        val userToSave = user.apply {
+            balance = user.balance - totalPrice
+        }
+        val portfolio = validatePortfolio(portfolioItemRepository.findByUserIdAndTicker(userToSave.id!!, request.ticker), request)
         userRepository.save(userToSave)
         portfolioItemRepository.save(portfolio)
 
         return EntityMessageMapper.toStockTradeResponse(request, userToSave.balance)
     }
+
+    @Transactional
+    fun sellStock(request: StockTradeRequest): StockTradeResponse {
+        //validate
+        validateTicker(request.ticker)
+        val user = userRepository.findById(request.userId).orElseThrow { UnknownUserException(request.userId) }
+
+        val portfolioItem = portfolioItemRepository.findByUserIdAndTicker(user.id!!, request.ticker) ?: throw UnknownTickerException()
+        val portfolioToSave = validateSellPortfolio(portfolioItem, request, user.id!!)
+
+        val totalPrice = request.quantity * request.price
+
+        val userToSave = user.apply {
+            balance = user.balance + totalPrice
+        }
+        userRepository.save(userToSave)
+        portfolioItemRepository.save(portfolioToSave)
+
+        return EntityMessageMapper.toStockTradeResponse(request, userToSave.balance)
+    }
+
 
     fun validateTicker(ticker: Ticker) {
         if (Ticker.UNKNOWN_VALUE == ticker.number) {
@@ -42,14 +65,25 @@ class StockTradeRequestHandler(
         }
     }
 
-    fun validateUserBalance(userId: Int, userBalance: Int, totalPrice: Int) {
+    fun validateUserBalance(userId: Int?, userBalance: Int, totalPrice: Int) {
         if(totalPrice > userBalance) {
             throw InsufficientBalanceException(userId)
         }
     }
 
     fun validatePortfolio(portfolio: PortfolioItem?, request: StockTradeRequest): PortfolioItem {
-        return portfolio?.copy(quantity = portfolio.quantity + request.quantity)
+        return portfolio?.apply {
+            quantity = (portfolio.quantity?.plus(request.quantity))
+        }
             ?: EntityMessageMapper.toPortfolioItem(request)
+    }
+
+    fun validateSellPortfolio(portfolioItem: PortfolioItem, request: StockTradeRequest, userId: Int): PortfolioItem {
+        if(request.quantity > portfolioItem.quantity!!) {
+            throw InsufficientBalanceException(userId)
+        }
+        return portfolioItem.apply {
+            quantity = portfolioItem.quantity!! - request.quantity
+        }
     }
 }

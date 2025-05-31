@@ -1,18 +1,15 @@
 package com.example.grpc_user_service.entity
 
 import com.vinsguru.common.Ticker
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.Id
+import jakarta.persistence.*
 
 @Entity
-data class PortfolioItem(
+class PortfolioItem {
     @Id
-    @GeneratedValue
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    var id: Int? = null
     @Column(name = "customer_id")
-    val userId: Int,
-    val ticker: Ticker,
-    val quantity: Int
-)
+    var userId: Int? = null
+    var ticker: Ticker? = null
+    var quantity: Int? = null
+}

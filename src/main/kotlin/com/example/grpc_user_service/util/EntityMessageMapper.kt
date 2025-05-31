@@ -13,18 +13,22 @@ class EntityMessageMapper {
             val holdingList = items.map {
                 Holding.newBuilder()
                     .setTicker(it.ticker)
-                    .setQuantity(it.quantity)
+                    .setQuantity(it.quantity!!)
                     .build()
             }
             return UserInformation.newBuilder()
-                .setUserId(user.id)
+                .setUserId(user.id!!)
                 .setName(user.name)
                 .setBalance(user.balance)
                 .addAllHoldings(holdingList)
                 .build()
         }
         fun toPortfolioItem(request: StockTradeRequest): PortfolioItem {
-            return PortfolioItem(null, request.userId, request.ticker, request.quantity)
+            return PortfolioItem().apply {
+                ticker = request.ticker
+                quantity = request.quantity
+                userId = request.userId
+            }
         }
 
         fun toStockTradeResponse(request: StockTradeRequest, balance: Int): StockTradeResponse {

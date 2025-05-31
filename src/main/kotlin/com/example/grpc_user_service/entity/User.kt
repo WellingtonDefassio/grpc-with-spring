@@ -6,9 +6,9 @@ import jakarta.persistence.Table
 
 @Entity
 @Table(name = "customer")
-data class User(
+class User() {
     @Id
-    val id: Int,
-    val name: String,
-    val balance: Int = 0
-)
+    var id: Int? = null
+    var name: String? = null
+    var balance: Int = 0
+}
